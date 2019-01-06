@@ -9,6 +9,7 @@ using Karambolo.Extensions.Logging.File;
 using System.IO;
 using System.Runtime.Loader;
 using System.Threading;
+using EventBrokerConfig;
 
 namespace EventBrokerDispatcher
 {
@@ -61,31 +62,22 @@ namespace EventBrokerDispatcher
         private static void ConfigureServices(IServiceCollection services)
         {                                 
             // Setup config
-            IConfigurationRoot configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .Build();            
-
-            // Are we in development?
-            var isDevelopment = configuration.GetSection("appSettings:IsDevelopment");
-
-            // Where is the logging root
-            var loggingRoot = configuration.GetSection("appSettings:LoggingRoot");
-                        
+            IConfig config = new Config();
+                                  
             // Setup services
             services
                 .AddLogging(lb =>
                 {
-                    lb.AddConfiguration(configuration.GetSection("Logging"));
-                    lb.AddFile(o => o.RootPath = (loggingRoot.Value ?? Directory.GetCurrentDirectory()));                                        
-                    if (isDevelopment.Value.ToUpper() == "TRUE")
+                    lb.AddConfiguration(config.Logging);
+                    lb.AddFile(o => o.RootPath = (config.LoggingRoot ?? Directory.GetCurrentDirectory()));                                        
+                    if (config.IsDevelopment)
                     {
                         lb.AddConsole();
                         lb.AddDebug();
                     }
                 })                        
                 .AddSingleton<IDispatcher, Dispatcher>()
-                .AddSingleton<IConfigurationRoot>(configuration);
+                .AddSingleton<IConfig>(config);
         }
 
     }

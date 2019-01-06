@@ -491,6 +491,21 @@
         "runtime": {
           "lib/netstandard2.0/System.Threading.Tasks.Dataflow.dll": {}
         }
+      },
+      "EventBrokerConfig/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.0",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "2.2.0",
+          "Microsoft.Extensions.Configuration.FileExtensions": "2.2.0",
+          "Microsoft.Extensions.Configuration.Json": "2.2.0"
+        },
+        "compile": {
+          "bin/placeholder/EventBrokerConfig.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/EventBrokerConfig.dll": {}
+        }
       }
     }
   },
@@ -1404,10 +1419,16 @@
         "useSharedDesignerContext.txt",
         "version.txt"
       ]
+    },
+    "EventBrokerConfig/1.0.0": {
+      "type": "project",
+      "path": "../EventBrokerConfig/EventBrokerConfig.csproj",
+      "msbuildProject": "../EventBrokerConfig/EventBrokerConfig.csproj"
     }
   },
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.2": [
+      "EventBrokerConfig >= 1.0.0",
       "Karambolo.Extensions.Logging.File >= 2.1.1",
       "Microsoft.Extensions.Configuration >= 2.2.0",
       "Microsoft.Extensions.Configuration.FileExtensions >= 2.2.0",
@@ -1446,7 +1467,11 @@
       },
       "frameworks": {
         "netcoreapp2.2": {
-          "projectReferences": {}
+          "projectReferences": {
+            "/home/mgkaiser/source/EventBroker/EventBrokerConfig/EventBrokerConfig.csproj": {
+              "projectPath": "/home/mgkaiser/source/EventBroker/EventBrokerConfig/EventBrokerConfig.csproj"
+            }
+          }
         }
       },
       "warningProperties": {
