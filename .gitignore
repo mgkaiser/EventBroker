@@ -1,0 +1,41 @@
+*.swp
+*.*~
+project.lock.json
+.DS_Store
+*.pyc
+
+# Visual Studio Code
+.vscode
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.cache
+*.assets.cache  
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+EventBrokerConfig/bin/
+EventBrokerConfig/obj/
+EventBrokerInterfaces/bin/
+EventBrokerInterfaces/obj/
+EventBrokerListener/bin/
+EventBrokerListener/obj/
+EventBroker/bin/
+EventBroker/obj/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# Visual Studio 2015
+.vs/
+
