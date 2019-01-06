@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
 using EventBrokerConfig;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace EventBrokerDispatcher.Service
 {
@@ -14,10 +16,18 @@ namespace EventBrokerDispatcher.Service
             _config = config;
         }
 
-        public void Start()
+        public async Task Start()
         {          
-            _logger.LogInformation("Starting EventBrokerDispatcher");
-            _logger.LogInformation("Ending EventBrokerDispatcher");
+            _logger.LogInformation("Starting Dispatcher Service");
+            await TakeANap();
+            _logger.LogInformation("Ending Dispatcher Service");
+        }
+
+        private async Task TakeANap()
+        {
+            _logger.LogInformation("BeginSlumber");                                                                
+            await Task.Delay(20000);
+            _logger.LogInformation("EndSlumber");
         }
     }
 }

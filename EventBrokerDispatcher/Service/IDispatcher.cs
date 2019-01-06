@@ -1,7 +1,9 @@
+using System.Threading.Tasks;
+
 namespace EventBrokerDispatcher.Service
 {
     public interface IDispatcher
     {
-         void Start();
+         Task Start();
     }
 }

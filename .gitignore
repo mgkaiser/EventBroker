@@ -26,16 +26,24 @@ build/
 bld/
 EventBrokerConfig/bin/
 EventBrokerConfig/obj/
+EventBrokerConfig/Logs/
 EventBrokerInterfaces/bin/
 EventBrokerInterfaces/obj/
+EventBrokerInterfaces/Logs/
 EventBrokerListener/bin/
 EventBrokerListener/obj/
+EventBrokerListener/Logs/
 EventBroker/bin/
 EventBroker/obj/
+EventBroker/Logs/
+EventBrokerDispatcher/bin/
+EventBrokerDispatcher/obj/
+EventBrokerDispatcher/Logs/
 msbuild.log
 msbuild.err
 msbuild.wrn
 
 # Visual Studio 2015
 .vs/
+
 
