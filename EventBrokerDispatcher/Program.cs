@@ -49,6 +49,13 @@ namespace EventBrokerDispatcher
                 var ended = new ManualResetEventSlim();
                 var starting = new ManualResetEventSlim();
 
+                Console.CancelKeyPress += (sender, arg) => {
+                    _logger.Value.LogInformation("Received CTRL-C Signal");
+                    _cts.Cancel();
+                    _Shutdown.Set();
+                    _Complete.Wait();  
+                };
+ 
                 AssemblyLoadContext.Default.Unloading += (obj) =>{
                     _logger.Value.LogInformation("Received Shutdown Signal");
                     _cts.Cancel();

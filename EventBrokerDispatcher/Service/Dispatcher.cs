@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using EventBrokerConfig;
 using System.Threading.Tasks;
 using System.Threading;
+using System;
 
 namespace EventBrokerDispatcher.Service
 {
@@ -18,9 +19,23 @@ namespace EventBrokerDispatcher.Service
 
         public async Task Start(CancellationToken cancelationToken)
         {          
-            _logger.LogInformation("Starting Dispatcher Service");
-            await TakeANap(cancelationToken);
-            _logger.LogInformation("Ending Dispatcher Service");
+            try
+            {
+                _logger.LogInformation("Starting Dispatcher Service");
+                await TakeANap(cancelationToken);
+            }
+            catch (TaskCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, ex.Message);
+            }
+            finally
+            {
+                _logger.LogInformation("Ending Dispatcher Service");
+            }
         }
 
         private async Task TakeANap(CancellationToken cancelationToken)
