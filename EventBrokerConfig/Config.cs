@@ -40,5 +40,37 @@ namespace EventBrokerConfig
             }
         }
 
+        public string RabbitMQServer
+        {
+            get
+            {
+                return _configuration.GetSection("appSettings:RabbitMQServer")?.Value;
+            }
+        }
+
+        public string RabbitMQVirtualHost
+        {
+            get
+            {
+                return _configuration.GetSection("appSettings:RabbitMQVirtualHost")?.Value ?? "/";
+            }
+        }
+
+        public string RabbitMQUsername
+        {
+            get
+            {
+                return _configuration.GetSection("appSettings:RabbitMQUsername")?.Value;
+            }
+        }
+
+        public string RabbitMQPassword
+        {
+            get
+            {
+                return _configuration.GetSection("appSettings:RabbitMQPassword")?.Value;
+            }
+        }
+
     }
 }

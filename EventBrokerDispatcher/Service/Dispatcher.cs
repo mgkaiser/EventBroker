@@ -3,46 +3,38 @@ using EventBrokerConfig;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
+using MassTransit;
+using Microsoft.Extensions.Hosting;
 
 namespace EventBrokerDispatcher.Service
 {
-    public class Dispatcher : IDispatcher
+    public class Dispatcher : IHostedService, IDisposable
     {
         private readonly ILogger _logger;
-        private readonly IConfig _config;
+        private readonly IBusControl _busControl;
 
-        public Dispatcher(ILoggerFactory loggerFactory, IConfig config)
+        public Dispatcher(IBusControl busControl, ILoggerFactory loggerFactory)
         {
             _logger = loggerFactory.CreateLogger<Dispatcher>();
-            _config = config;
+            _busControl = busControl;
         }
 
-        public async Task Start(CancellationToken cancelationToken)
-        {          
-            try
-            {
-                _logger.LogInformation("Starting Dispatcher Service");
-                await TakeANap(cancelationToken);
-            }
-            catch (TaskCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, ex.Message);
-            }
-            finally
-            {
-                _logger.LogInformation("Ending Dispatcher Service");
-            }
-        }
-
-        private async Task TakeANap(CancellationToken cancelationToken)
+        public void Dispose()
         {
-            _logger.LogInformation("BeginSlumber");                                                                
-            await Task.Delay(20000,cancelationToken);
-            _logger.LogInformation("EndSlumber");
+            // Do nothing
         }
+
+        public Task StartAsync(CancellationToken cancellationToken)
+        {          
+            _logger.LogInformation("Starting Dispatcher Service");
+            return _busControl.StartAsync(cancellationToken);
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Stopping Dispatcher Service");
+            return _busControl.StopAsync(cancellationToken);
+        }
+
     }
 }

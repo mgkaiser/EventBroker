@@ -11,106 +11,95 @@ using System.Runtime.Loader;
 using System.Threading;
 using EventBrokerConfig;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
+using EventBrokerDispatcher.Consumers;
+using MassTransit.ExtensionsDependencyInjectionIntegration;
+using MassTransit;
+using RabbitMQ.Client;
+using EventBrokerInterfaces;
 
 namespace EventBrokerDispatcher
 {
-    ///////////////////////////////////////////////////////////////////////////
-    // DON'T change anything in this.  Define a partial class to finish this
-    //
-    // Provide the following:
-    // private static async Task RunServices(CancellationToken token)
-    // private static void ConfigureServices(IServiceCollection services)
-    ///////////////////////////////////////////////////////////////////////////
-    partial class Program
+    class Program
     {
-        private static ManualResetEvent _Shutdown = new ManualResetEvent(false);
-        private static ManualResetEventSlim _Complete = new ManualResetEventSlim();
-        private static CancellationTokenSource _cts = new CancellationTokenSource();
-        
-        private static Lazy<ILogger> _logger = new Lazy<ILogger>(()=>{            
-            return _serviceProvider.Value.GetService<ILoggerFactory>().CreateLogger<Program>();
-        });
-        
-        private static Lazy<IServiceProvider> _serviceProvider = new Lazy<IServiceProvider>(() => {
-            // Setup our ServiceCollection
-            var serviceCollection = new ServiceCollection();
-            ConfigureServicesMain(serviceCollection);
+        private static IConfig _config = new Config();
 
-            // Setup our ServiceProvider
-            return serviceCollection.BuildServiceProvider(); 
-        });
-                
-        static async Task<int> Main(string[] args)
-        {                                    
-            try
-            {                
-                _logger.Value.LogInformation($"Starting {System.AppDomain.CurrentDomain.FriendlyName}");            
+        static async Task Main(string[] args)
+        {
+            await new HostBuilder()
+                .ConfigureServices((hostContext, services) =>
+                {                                       
+                    // Register Config
+                    services.AddSingleton<IConfig>(_config);
 
-                var ended = new ManualResetEventSlim();
-                var starting = new ManualResetEventSlim();
-
-                Console.CancelKeyPress += (sender, arg) => {
-                    _logger.Value.LogInformation("Received CTRL-C Signal");
-                    _cts.Cancel();
-                    _Shutdown.Set();
-                    _Complete.Wait();  
-                };
- 
-                AssemblyLoadContext.Default.Unloading += (obj) =>{
-                    _logger.Value.LogInformation("Received Shutdown Signal");
-                    _cts.Cancel();
-                    _Shutdown.Set();
-                    _Complete.Wait();        
-                };
-                                  
-                // Do the actual work here
-                await RunServices(_cts.Token);
-                                
-                // Wait for a singnal
-                _Shutdown.WaitOne();
-            }
-            catch (TaskCanceledException taskCaneledException)
-            {
-                _logger.Value.LogWarning(taskCaneledException.Message);
-            }
-            catch (Exception ex)
-            {
-                _logger.Value.LogError(ex, ex.Message);                
-            }
-            finally
-            {
-                _logger.Value.LogInformation($"Ending {System.AppDomain.CurrentDomain.FriendlyName}");            
-            }
-            
-            _Complete.Set();
- 
-            return 0;
-            
-        }
-        
-        private static void ConfigureServicesMain(IServiceCollection services)
-        {                                 
-            // Setup config
-            IConfig config = new Config();
-                                  
-            // Setup services
-            services
-                .AddLogging(lb =>
-                {
-                    lb.AddConfiguration(config.Logging);
-                    lb.AddFile(o => o.RootPath = (config.LoggingRoot ?? Directory.GetCurrentDirectory()));                                        
-                    if (config.IsDevelopment)
+                    // Register Logging
+                    services.AddLogging(lb =>
                     {
-                        lb.AddConsole();
-                        lb.AddDebug();
-                    }
-                })                                        
-                .AddSingleton<IConfig>(config);
+                        lb.AddConfiguration(_config.Logging);
+                        lb.AddFile(o => o.RootPath = (_config.LoggingRoot ?? Directory.GetCurrentDirectory()));                                        
+                        if (_config.IsDevelopment)
+                        {
+                            lb.AddConsole();
+                            lb.AddDebug();
+                        }
+                    });                                     
 
-            // Pass along to the service's setup
-            ConfigureServices(services);
-        }
+                    // Register the consumers
+                    services.AddScoped<EGTEventConsumer>();             
+                    
+                    // Attach consumers to Mass Transit
+                    services.AddMassTransit(x =>
+                    {
+                        x.AddConsumer<EGTEventConsumer>();
+                    });
 
+                    // Setup the Mass Transit Bus
+                    services.AddSingleton(provider => Bus.Factory.CreateUsingRabbitMq(cfg =>
+                    {
+                        var host = cfg.Host(_config.RabbitMQServer, _config.RabbitMQVirtualHost, h => { 
+                            h.Username(_config.RabbitMQUsername);
+                            h.Password(_config.RabbitMQPassword);
+                        });
+
+                        cfg.UseDelayedExchangeMessageScheduler();
+                        
+                        cfg.ReceiveEndpoint(host, "EventBrokerDispatcher_CAM_queue", x =>
+                        {
+                            x.LoadFrom(provider);
+                            x.BindMessageExchanges = false;                
+                            x.Bind("EventBrokerInterfaces:IEGTEvent", config =>
+                            {
+                                config.ExchangeType = ExchangeType.Direct;
+                                config.RoutingKey = "Serve.CAM.Events:CAM.Customer.Created";
+                            });
+                            x.Bind("EventBrokerInterfaces:IEGTEvent", config =>
+                            {
+                                config.ExchangeType = ExchangeType.Direct;
+                                config.RoutingKey = "Serve.CAM.Events:CAM.Card.Created";
+                            });                   
+                            x.Consumer<EGTEventConsumer>(consumer => {
+                                consumer.Message<IEGTEvent>(msg => msg.UseScheduledRedelivery(Retry.Incremental(10, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5))));
+                            });
+                            
+                        });
+
+                
+                    }));
+
+                    // Register the bus
+                    services.AddSingleton<IPublishEndpoint>(provider => provider.GetRequiredService<IBusControl>());
+                    services.AddSingleton<ISendEndpointProvider>(provider => provider.GetRequiredService<IBusControl>());
+                    services.AddSingleton<IBus>(provider => provider.GetRequiredService<IBusControl>());
+
+                    // Register the consumer
+                    services.AddScoped(provider => provider.GetRequiredService<IBus>().CreateRequestClient<EGTEventConsumer>());
+
+                    // Register the service
+                     services.AddHostedService<Dispatcher>();
+               
+                })
+                .RunConsoleAsync();
+        }    
     }
 }
 
