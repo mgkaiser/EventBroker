@@ -16,17 +16,17 @@ namespace EventBrokerDispatcher.Service
             _config = config;
         }
 
-        public async Task Start()
+        public async Task Start(CancellationToken cancelationToken)
         {          
             _logger.LogInformation("Starting Dispatcher Service");
-            await TakeANap();
+            await TakeANap(cancelationToken);
             _logger.LogInformation("Ending Dispatcher Service");
         }
 
-        private async Task TakeANap()
+        private async Task TakeANap(CancellationToken cancelationToken)
         {
             _logger.LogInformation("BeginSlumber");                                                                
-            await Task.Delay(20000);
+            await Task.Delay(20000,cancelationToken);
             _logger.LogInformation("EndSlumber");
         }
     }

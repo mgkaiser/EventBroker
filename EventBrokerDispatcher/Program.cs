@@ -18,6 +18,7 @@ namespace EventBrokerDispatcher
     {
         private static ManualResetEvent _Shutdown = new ManualResetEvent(false);
         private static ManualResetEventSlim _Complete = new ManualResetEventSlim();
+        private static CancellationTokenSource _cts = new CancellationTokenSource();
         
         private static Lazy<ILogger> _logger = new Lazy<ILogger>(()=>{            
             return _serviceProvider.Value.GetService<ILoggerFactory>().CreateLogger<Program>();
@@ -43,16 +44,21 @@ namespace EventBrokerDispatcher
 
                 AssemblyLoadContext.Default.Unloading += (obj) =>{
                     _logger.Value.LogInformation("Received Shutdown Signal");
+                    _cts.Cancel();
                     _Shutdown.Set();
                     _Complete.Wait();        
                 };
                                   
                 // Do the actual work here
                 var dispatcher = _serviceProvider.Value.GetService<IDispatcher>();
-                await dispatcher.Start();
+                await dispatcher.Start(_cts.Token);
                 
                 // Wait for a singnal
                 _Shutdown.WaitOne();
+            }
+            catch (TaskCanceledException taskCaneledException)
+            {
+                _logger.Value.LogWarning(taskCaneledException.Message);
             }
             catch (Exception ex)
             {
