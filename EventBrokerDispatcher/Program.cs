@@ -14,7 +14,14 @@ using System.Threading.Tasks;
 
 namespace EventBrokerDispatcher
 {
-    class Program
+    ///////////////////////////////////////////////////////////////////////////
+    // DON'T change anything in this.  Define a partial class to finish this
+    //
+    // Provide the following:
+    // private static async Task RunServices(CancellationToken token)
+    // private static void ConfigureServices(IServiceCollection services)
+    ///////////////////////////////////////////////////////////////////////////
+    partial class Program
     {
         private static ManualResetEvent _Shutdown = new ManualResetEvent(false);
         private static ManualResetEventSlim _Complete = new ManualResetEventSlim();
@@ -27,17 +34,17 @@ namespace EventBrokerDispatcher
         private static Lazy<IServiceProvider> _serviceProvider = new Lazy<IServiceProvider>(() => {
             // Setup our ServiceCollection
             var serviceCollection = new ServiceCollection();
-            ConfigureServices(serviceCollection);
+            ConfigureServicesMain(serviceCollection);
 
             // Setup our ServiceProvider
             return serviceCollection.BuildServiceProvider(); 
         });
-
+                
         static async Task<int> Main(string[] args)
-        {                        
+        {                                    
             try
-            {
-                _logger.Value.LogInformation("Starting EventBrokerDispatcher");            
+            {                
+                _logger.Value.LogInformation($"Starting {System.AppDomain.CurrentDomain.FriendlyName}");            
 
                 var ended = new ManualResetEventSlim();
                 var starting = new ManualResetEventSlim();
@@ -50,9 +57,8 @@ namespace EventBrokerDispatcher
                 };
                                   
                 // Do the actual work here
-                var dispatcher = _serviceProvider.Value.GetService<IDispatcher>();
-                await dispatcher.Start(_cts.Token);
-                
+                await RunServices(_cts.Token);
+                                
                 // Wait for a singnal
                 _Shutdown.WaitOne();
             }
@@ -66,7 +72,7 @@ namespace EventBrokerDispatcher
             }
             finally
             {
-                _logger.Value.LogInformation("Ending EventBrokerDispatcher");
+                _logger.Value.LogInformation($"Ending {System.AppDomain.CurrentDomain.FriendlyName}");            
             }
             
             _Complete.Set();
@@ -75,7 +81,7 @@ namespace EventBrokerDispatcher
             
         }
         
-        private static void ConfigureServices(IServiceCollection services)
+        private static void ConfigureServicesMain(IServiceCollection services)
         {                                 
             // Setup config
             IConfig config = new Config();
@@ -91,9 +97,11 @@ namespace EventBrokerDispatcher
                         lb.AddConsole();
                         lb.AddDebug();
                     }
-                })                        
-                .AddSingleton<IDispatcher, Dispatcher>()
+                })                                        
                 .AddSingleton<IConfig>(config);
+
+            // Pass along to the service's setup
+            ConfigureServices(services);
         }
 
     }
