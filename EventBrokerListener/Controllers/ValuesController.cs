@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using EventBrokerInterfaces;
+using MassTransit;
 
 namespace EventBrokerListener.Controllers
 {
@@ -10,10 +12,18 @@ namespace EventBrokerListener.Controllers
     [ApiController]
     public class ValuesController : ControllerBase
     {
+        private readonly IBus _bus;
+
+        public ValuesController(IBus bus)
+        {
+            _bus = bus;
+        }
+
         // GET api/values
         [HttpGet]
         public ActionResult<IEnumerable<string>> Get()
         {
+            _bus.Publish<IEGTEvent>(new { SenderId = "Serve.CAM.Events", EventType = "CAM.Customer.Created", Message = false });
             return new string[] { "value1", "value2" };
         }
 

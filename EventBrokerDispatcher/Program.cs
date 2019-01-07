@@ -36,12 +36,9 @@ namespace EventBrokerDispatcher
                     services.AddLogging(lb =>
                     {
                         lb.AddConfiguration(_config.Logging);
-                        lb.AddFile(o => o.RootPath = (_config.LoggingRoot ?? Directory.GetCurrentDirectory()));                                        
-                        if (_config.IsDevelopment)
-                        {
-                            lb.AddConsole();
-                            lb.AddDebug();
-                        }
+                        lb.AddFile(o => o.RootPath = (_config.LoggingRoot ?? Directory.GetCurrentDirectory()));                                                               
+                        lb.AddConsole();
+                        lb.AddDebug();
                     });                                     
 
                     // Register the consumers
@@ -62,28 +59,34 @@ namespace EventBrokerDispatcher
                         });
 
                         cfg.UseDelayedExchangeMessageScheduler();
-                        
-                        cfg.ReceiveEndpoint(host, "EventBrokerDispatcher_CAM_queue", x =>
-                        {
-                            x.LoadFrom(provider);
-                            x.BindMessageExchanges = false;                
-                            x.Bind("EventBrokerInterfaces:IEGTEvent", config =>
-                            {
-                                config.ExchangeType = ExchangeType.Direct;
-                                config.RoutingKey = "Serve.CAM.Events:CAM.Customer.Created";
-                            });
-                            x.Bind("EventBrokerInterfaces:IEGTEvent", config =>
-                            {
-                                config.ExchangeType = ExchangeType.Direct;
-                                config.RoutingKey = "Serve.CAM.Events:CAM.Card.Created";
-                            });                   
-                            x.Consumer<EGTEventConsumer>(consumer => {
-                                consumer.Message<IEGTEvent>(msg => msg.UseScheduledRedelivery(Retry.Incremental(10, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5))));
-                            });
-                            
-                        });
 
-                
+                        var logger = provider.GetRequiredService<ILoggerFactory>().CreateLogger<Program>();
+
+                        foreach (var queue in _config.eventBrokerQueues.queues)
+                        {
+                            cfg.ReceiveEndpoint(host, $"EventBrokerDispatcher_{queue.queueName}_queue", x =>
+                            {                                
+                                x.BindMessageExchanges = false;        
+                                foreach (var binding in queue.bindings)   
+                                {
+                                    logger.LogInformation($"Binding {queue.queueName} to SenderId {binding.senderId} : EventType {binding.eventType}.");
+                                    x.Bind("EventBrokerInterfaces:IEGTEvent", config =>
+                                    {
+                                        config.ExchangeType = ExchangeType.Direct;
+                                        config.RoutingKey = $"{binding.senderId}:{binding.eventType}";
+                                    });
+                                }                                       
+                                x.Consumer<EGTEventConsumer>(
+                                ()=> { 
+                                    var consumer = provider.GetRequiredService<EGTEventConsumer>(); 
+                                    consumer.Url = queue.url;
+                                    return consumer;
+                                },
+                                consumer => {
+                                    consumer.Message<IEGTEvent>(msg => msg.UseScheduledRedelivery(Retry.Incremental(10, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5))));
+                                });                                                                
+                            });
+                        };                
                     }));
 
                     // Register the bus

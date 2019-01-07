@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Microsoft.Extensions.Configuration;
 
@@ -14,14 +15,7 @@ namespace EventBrokerConfig
             _configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .Build();  
-        }
-
-        public bool IsDevelopment{
-            get
-            {
-                return (_configuration.GetSection("appSettings:IsDevelopment")?.Value ?? "true").ToUpper() == "TRUE";
-            }
+                .Build();                         
         }
 
         public string LoggingRoot 
@@ -72,5 +66,14 @@ namespace EventBrokerConfig
             }
         }
 
+        public EventBrokerQueues eventBrokerQueues
+        {
+            get
+            {
+                EventBrokerQueues x = new EventBrokerQueues();
+                _configuration.GetSection("eventBrokerQueues").Bind(x);
+                return x;
+            }
+        } 
     }
 }
