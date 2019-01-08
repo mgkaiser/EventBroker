@@ -20,7 +20,7 @@ namespace EventBrokerDispatcher.Consumers
 
         public Task Consume(ConsumeContext<IEGTEvent> context)
         {
-            _logger.LogInformation($"Received event: {context.Message.SenderId} : {context.Message.EventType}");
+            _logger.LogInformation("Received event: {SenderId} : {EventType}", context.Message.SenderId, context.Message.EventType);
             return Task.CompletedTask;
         }
     }
