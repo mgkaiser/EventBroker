@@ -39,7 +39,7 @@ namespace EventBrokerDispatcher
 
                     Configuration = builder.Build();
 
-                    var elasticUri = Configuration.GetSection("ElasticConfiguration:Uri")?.Value;
+                    var elasticUri = Configuration["ElasticConfiguration:Uri"];
 
                     Log.Logger = new LoggerConfiguration()
                         .Enrich.FromLogContext()

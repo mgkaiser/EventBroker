@@ -28,4 +28,9 @@
     <ProjectReference Include="..\EventBrokerConfig\EventBrokerConfig.csproj" />
     <ProjectReference Include="..\EventBrokerInterfaces\EventBrokerInterfaces.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>
