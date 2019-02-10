@@ -3,13 +3,9 @@ using EventBrokerDispatcher.Service;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
-using Microsoft.Extensions.Logging.Debug;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Configuration;
-using Karambolo.Extensions.Logging.File;
 using System.IO;
-using System.Runtime.Loader;
-using System.Threading;
 using EventBrokerConfig;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
@@ -24,45 +20,15 @@ using Serilog.Sinks.Elasticsearch;
 namespace EventBrokerDispatcher
 {
     class Program
-    {
-        public static IConfiguration Configuration { get; set; }
-
+    {    
         static async Task Main(string[] args)
         {
             await new HostBuilder()
                 .ConfigureServices((hostContext, services) =>
-                {                          
-                    var builder = new ConfigurationBuilder()
-                        .SetBasePath(Directory.GetCurrentDirectory())
-                        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                        .AddJsonFile($"appsettings.{hostContext.HostingEnvironment.EnvironmentName}.json", reloadOnChange: true, optional: true);
-
-                    Configuration = builder.Build();
-
-                    var elasticUri = Configuration["ElasticConfiguration:Uri"];
-
-                    Log.Logger = new LoggerConfiguration()
-                        .Enrich.FromLogContext()
-                        .Enrich.WithProperty("Application", Configuration.GetSection("ElasticConfiguration:Application")?.Value)
-                        .Enrich.WithProperty("FriendlyName", System.AppDomain.CurrentDomain.FriendlyName)
-                        .WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri(elasticUri))
-                        {
-                            AutoRegisterTemplate = true,
-                        })
-                    .CreateLogger();
-
-                    // Register Config
-                    services.AddSingleton<IConfig, Config>();
-
-                    // Register Logging
-                    services.AddLogging(lb =>
-                    {
-                        lb.AddConfiguration(Configuration.GetSection("Logging"));
-                        lb.AddFile(o => o.RootPath = (Configuration.GetSection("Logging:File:LoggingRoot")?.Value ?? Directory.GetCurrentDirectory()));                                                        
-                        lb.AddConsole();
-                        lb.AddDebug();   
-                        lb.AddSerilog();             
-                    });                                                
+                {
+                    // Get the config settings
+                    var eventBrokerQueues = new EventBrokerQueues();
+                    hostContext.Configuration.GetSection("eventBrokerQueues").Bind(eventBrokerQueues);
 
                     // Register the consumers
                     services.AddScoped<EGTEventConsumer>();             
@@ -75,19 +41,18 @@ namespace EventBrokerDispatcher
 
                     // Setup the Mass Transit Bus
                     services.AddSingleton(provider => Bus.Factory.CreateUsingRabbitMq(cfg =>
-                    {
-                        var config = provider.GetRequiredService<IConfig>();
-                        var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-                        var logger = loggerFactory.CreateLogger<Program>();
+                    {                        
+                        var loggerFactory = provider.GetRequiredService<ILoggerFactory>();                        
+                        var logger = loggerFactory.CreateLogger<Program>();                        
 
-                        var host = cfg.Host(Configuration.GetSection("rabbitMQSetting:RabbitMQServer")?.Value, Configuration.GetSection("rabbitMQSetting:RabbitMQVirtualHost")?.Value ?? "/", h => { 
-                            h.Username(Configuration.GetSection("rabbitMQSetting:RabbitMQUsername")?.Value);
-                            h.Password(Configuration.GetSection("rabbitMQSetting:RabbitMQPassword")?.Value);
+                        var host = cfg.Host(hostContext.Configuration.GetSection("rabbitMQSetting:RabbitMQServer")?.Value, hostContext.Configuration.GetSection("rabbitMQSetting:RabbitMQVirtualHost")?.Value ?? "/", h => { 
+                            h.Username(hostContext.Configuration.GetSection("rabbitMQSetting:RabbitMQUsername")?.Value);
+                            h.Password(hostContext.Configuration.GetSection("rabbitMQSetting:RabbitMQPassword")?.Value);
                         });
 
-                        cfg.UseDelayedExchangeMessageScheduler();
+                        cfg.UseDelayedExchangeMessageScheduler();                        
                                                 
-                        foreach (var queue in config.eventBrokerQueues.queues)
+                        foreach (var queue in eventBrokerQueues.queues)
                         {
                             cfg.ReceiveEndpoint(host, $"EventBrokerDispatcher_{queue.queueName}_queue", x =>
                             {                                
@@ -125,6 +90,29 @@ namespace EventBrokerDispatcher
                     // Register the service
                      services.AddHostedService<Dispatcher>();
                
+                })
+                .ConfigureAppConfiguration((hostContext, configApp) =>
+                {
+                    configApp
+                        .SetBasePath(Directory.GetCurrentDirectory())
+                        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                        .AddJsonFile($"appsettings.{hostContext.HostingEnvironment.EnvironmentName}.json", reloadOnChange: true, optional: true);
+                })
+                .ConfigureLogging((hostContext, configLogging) =>
+                {
+                    Log.Logger = new LoggerConfiguration()
+                        .Enrich.FromLogContext()
+                        .Enrich.WithProperty("Application", hostContext.Configuration.GetSection("ElasticConfiguration:Application")?.Value)
+                        .Enrich.WithProperty("FriendlyName", System.AppDomain.CurrentDomain.FriendlyName)
+                        .WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri(hostContext.Configuration.GetSection("ElasticConfiguration:Uri")?.Value))
+                        {
+                            AutoRegisterTemplate = true,
+                        })
+                        .WriteTo.Console()
+                        .WriteTo.File($"{hostContext.Configuration.GetSection("Serilog:LogRoot")?.Value}log-.txt", rollingInterval: RollingInterval.Day)
+                    .CreateLogger();
+
+                    configLogging.AddSerilog();
                 })
                 .RunConsoleAsync();
         }    
