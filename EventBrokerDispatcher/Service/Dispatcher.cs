@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using EventBrokerConfig;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
